@@ -40,7 +40,7 @@ if __name__ == '__main__':
             datas = conn.get_datas(epc_list)
 
             for epc, data in datas.items():
-                logger.info(f'Get raw data: {echonet.epc_name(epc)}: {data}')
+                logger.debug(f'Get raw data: {echonet.epc_name(epc)}: {data}')
 
             watt_raw_data = datas.get(echonet.epc_watt, '')
             if watt_raw_data != '':
