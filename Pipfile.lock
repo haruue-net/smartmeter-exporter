@@ -18,11 +18,12 @@
     "default": {
         "prometheus-client": {
             "hashes": [
-                "sha256:522fded625282822a89e2773452f42df14b5a8e84a86433e3f8a189c1d54dc01",
-                "sha256:5459c427624961076277fdc6dc50540e2bacb98eebde99886e59ec55ed92093a"
+                "sha256:190f1331e783cf21eb60bca559354e0a4d4378facecf78f5428c39b675d20d28",
+                "sha256:cca895342e308174341b2cbf99a56bef291fbc0ef7b9e5412a0f26d653ba7094"
             ],
             "index": "pypi",
-            "version": "==0.14.1"
+            "markers": "python_version >= '3.9'",
+            "version": "==0.22.1"
         },
         "pyserial": {
             "hashes": [
