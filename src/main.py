@@ -1,6 +1,7 @@
 import logging, os, time, prometheus_client
 from prometheus_client import Gauge
 from smart_meter_connection import SmartMeterConnection
+import echonet as echonet
 
 if __name__ == '__main__':
 
@@ -23,20 +24,51 @@ if __name__ == '__main__':
     with SmartMeterConnection(sm_id, sm_key, sm_dev) as conn:
         conn.initialize_params()
         while True:
-            watt_raw_data = conn.get_data('watt')
+            datas = conn.get_datas()
+
+            watt_raw_data = datas[echonet.epc_watt]
             if not watt_raw_data is None:
                 watt_data = int(watt_raw_data,16)
-                watt_gauge.set(watt_data)
-                logger.info(f'Current power consumption(Watt): {watt_data} W')
+                if watt_data == 0x80000000:
+                    logger.info(f'Current power consumption(Watt): Underflow')
+                    pass
+                elif watt_data == 0x7FFFFFFF:
+                    logger.info(f'Current power consumption(Watt): Overflow')
+                    pass
+                elif watt_data == 0x7FFFFFFE:
+                    logger.info(f'Current power consumption(Watt): No data')
+                    pass
+                else:
+                    watt_gauge.set(watt_data)
+                    logger.info(f'Current power consumption(Watt): {watt_data} W')
 
-            ampare_data = conn.get_data('ampare')
+            ampare_data = datas[echonet.epc_ampare]
             if not ampare_data is None:
-                ampare_data_r = int(ampare_data[0:4], 16) * 100
-                ampare_data_t = int(ampare_data[4:8], 16) * 100
-                if not ampare_data_r  is None:
-                    ampare_gauge_r.set(ampare_data_r)
-                    logger.info(f'Current power consumption(Ampare/R): {ampare_data_r} mA')
-                if not ampare_data_t  is None:
-                    ampare_gauge_t.set(ampare_data_t)
-                    logger.info(f'Current power consumption(Ampare/T): {ampare_data_t} mA')
+                ampare_data_r = int(ampare_data[0:4], 16)
+                ampare_data_t = int(ampare_data[4:8], 16)
+                if ampare_data_r is None:
+                    pass
+                if ampare_data_r == 0x8000:
+                    logger.info(f'Current power consumption(Ampare/R): Underflow')
+                elif ampare_data_r == 0x7FFF:
+                    logger.info(f'Current power consumption(Ampare/R): Overflow')
+                elif ampare_data_r == 0x7FFE:
+                    logger.info(f'Current power consumption(Ampare/R): No data')
+                else:
+                    ampare_r = ampare_data_r * 100
+                    ampare_gauge_r.set(ampare_r)
+                    logger.info(f'Current power consumption(Ampare/R): {ampare_r} mA')
+                if ampare_data_t is None:
+                    pass
+                if ampare_data_t == 0x8000:
+                    logger.info(f'Current power consumption(Ampare/T): Underflow')
+                elif ampare_data_t == 0x7FFF:
+                    logger.info(f'Current power consumption(Ampare/T): Overflow')
+                elif ampare_data_t == 0x7FFE:
+                    logger.info(f'Current power consumption(Ampare/T): No data')
+                else:
+                    ampare_t = ampare_data_t * 100
+                    ampare_gauge_t.set(ampare_t)
+                    logger.info(f'Current power consumption(Ampare/T): {ampare_t} mA')
+
             time.sleep(sm_interval)

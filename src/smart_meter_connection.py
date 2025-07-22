@@ -68,7 +68,7 @@ class SmartMeterConnection:
         while blob == b'':
             blank_counter += 1
             blob = self.__connection.readline()
-            if blank_counter > 100:
+            if blank_counter > 10:
                 self.__logger.debug(f'Blank line limit exceeded. retry...')
                 return ""
             text = blob.decode(encoding='utf-8')[:-2]
@@ -91,7 +91,7 @@ class SmartMeterConnection:
         assert self.__read_line_serial() == 'OK'
 
     def __scan(self) -> Tuple[str, str, str]:
-        for duration in range(4, 10):
+        for duration in range(6, 10):
             self.__logger.debug(f'Start scanning with duration {duration}')
             self.__write_line_serial(f'SKSCAN 2 FFFFFFFF {duration} 0')
             scan_res = {}
@@ -165,20 +165,18 @@ class SmartMeterConnection:
             }
         return erxudp_response
 
-    def get_data(self, epc_type: str) -> Optional[int]:
+    def get_datas(self) -> Optional[dict[bytes, bytes]]:
         if not self.__connection:
             raise Exception('Connection is not initialized')
         if not self.__link_local_addr:
             raise Exception('Destination address is not set')
         
-        if epc_type == 'watt':
-            epc = echonet.epc_watt
-        elif epc_type == 'ampare':
-            epc = echonet.epc_ampare
-        else:
-            return None
+        epc_list = [
+            echonet.epc_watt,
+            echonet.epc_ampare,
+        ]
 
-        request_bytes = echonet.make_elite_request_str(epc_type)
+        request_bytes = echonet.make_elite_request_multiple_get(epc_list)
         self.__send_udp_serial(self.__link_local_addr, request_bytes)
 
         if not self.__read_line_serial().startswith('EVENT 21'):
@@ -189,9 +187,7 @@ class SmartMeterConnection:
 
         if event.startswith('ERXUDP'):
             parts = self.__parse_erxudp(event)
-            data = echonet.parse_elite_response_data(parts['data'])
-            if (    data['seoj'] == echonet.smartmeter_eoj
-                and data['esv'] == echonet.esv_res_codes['Get_Res']
-                and data['epc'] == epc):
-                return data['edt']
+            resp = echonet.parse_elite_response_multiple_get(parts['data'])
+            if (resp['header']['seoj'] == echonet.smartmeter_eoj and resp['header']['esv'] == echonet.esv_Get_Res):
+                return resp['data']
         return None
