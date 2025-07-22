@@ -165,17 +165,12 @@ class SmartMeterConnection:
             }
         return erxudp_response
 
-    def get_datas(self) -> Optional[dict[bytes, bytes]]:
+    def get_datas(self, epc_list: list[bytes]) -> Optional[dict[bytes, bytes]]:
         if not self.__connection:
             raise Exception('Connection is not initialized')
         if not self.__link_local_addr:
             raise Exception('Destination address is not set')
         
-        epc_list = [
-            echonet.epc_watt,
-            echonet.epc_ampare,
-        ]
-
         request_bytes = echonet.make_elite_request_multiple_get(epc_list)
         self.__send_udp_serial(self.__link_local_addr, request_bytes)
 
@@ -187,7 +182,36 @@ class SmartMeterConnection:
 
         if event.startswith('ERXUDP'):
             parts = self.__parse_erxudp(event)
-            resp = echonet.parse_elite_response_multiple_get(parts['data'])
-            if (resp['header']['seoj'] == echonet.smartmeter_eoj and resp['header']['esv'] == echonet.esv_Get_Res):
+            resp = echonet.parse_elite_response_multiple(parts['data'])
+            if (resp['header']['seoj'] != echonet.smartmeter_eoj):
+                return None
+
+            resp_esv = resp['header']['esv']
+            if (  resp_esv == echonet.esv_Get_Res 
+                # allow Get_SNA response for partial data retrieval
+                or resp_esv == echonet.esv_Get_SNA):
+                return resp['data']
+
+        return None
+
+    def set_datas(self, epc_map: dict[bytes, bytes]) -> Optional[dict[bytes, bytes]]:
+        if not self.__connection:
+            raise Exception('Connection is not initialized')
+        if not self.__link_local_addr:
+            raise Exception('Destination address is not set')
+
+        request_bytes = echonet.make_elite_request_multiple_set(epc_map)
+        self.__send_udp_serial(self.__link_local_addr, request_bytes)
+
+        if not self.__read_line_serial().startswith('EVENT 21'):
+            return None
+        if self.__read_line_serial() != 'OK':
+            return None
+        event = self.__read_line_serial()
+
+        if event.startswith('ERXUDP'):
+            parts = self.__parse_erxudp(event)
+            resp = echonet.parse_elite_response_multiple(parts['data'])
+            if (resp['header']['seoj'] == echonet.smartmeter_eoj and resp['header']['esv'] == echonet.esv_Set_Res):
                 return resp['data']
         return None
