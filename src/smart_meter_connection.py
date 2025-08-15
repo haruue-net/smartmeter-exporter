@@ -2,9 +2,10 @@ import logging,time
 from typing import Optional, Tuple
 from serial import Serial
 import echonet as echonet
+from prometheus_client import Gauge
 
 class SmartMeterConnection:
-    def __init__(self, sm_id: str, sm_key: str, sm_dev: str):
+    def __init__(self, sm_id: str, sm_key: str, sm_dev: str, rssi_gauge: Optional[Gauge] = None):
         self.__id = sm_id
         self.__key = sm_key
         self.__dev = sm_dev
@@ -12,6 +13,7 @@ class SmartMeterConnection:
         self.__logger = logging.getLogger(__name__)
         self.__connection: Optional[Serial] = None
         self.__link_local_addr: Optional[str] = None
+        self.__rssi_gauge: Optional[Gauge] = rssi_gauge
 
     def connect(self):
         self.__connection = Serial(self.__dev, 115200)
@@ -31,6 +33,7 @@ class SmartMeterConnection:
         self.__logger.info(f'Channel: {channel}, Pan ID: {pan_id}, Addr; {addr}')
         self.__set_reg('S2', channel)
         self.__set_reg('S3', pan_id)
+        self.__set_reg('SA2', 1) # enable rssi in ERXUDP
         link_local_addr = self.__get_ip_from_mac(addr)
         self.__logger.info(f'IPv6 Link Local: {link_local_addr}')
         self.__connect(link_local_addr)
@@ -182,6 +185,10 @@ class SmartMeterConnection:
 
         if event.startswith('ERXUDP'):
             parts = self.__parse_erxudp(event)
+
+            if parts['rssi'] and self.__rssi_gauge:
+                self.__rssi_gauge.set(int(parts['rssi'], base=16))
+
             resp = echonet.parse_elite_response_multiple(parts['data'])
             if (resp['header']['seoj'] != echonet.smartmeter_eoj):
                 return None

@@ -23,8 +23,9 @@ if __name__ == '__main__':
     ampare_gauge_t = Gauge('power_consumption_ampare_t', 'Power consumption in Ampare(T)')
     accmulated_energy_gauge_r = Gauge('accumulated_energy_consumption_r', 'Accumulated energy consumption in kWh(R)')
     accmulated_energy_gauge_t = Gauge('accumulated_energy_consumption_t', 'Accumulated energy consumption in kWh(T)')
+    rssi_gauge = Gauge('rssi', 'RSSI')
     
-    with SmartMeterConnection(sm_id, sm_key, sm_dev) as conn:
+    with SmartMeterConnection(sm_id, sm_key, sm_dev, rssi_gauge=rssi_gauge) as conn:
         conn.initialize_params()
 
         epc_list = [
